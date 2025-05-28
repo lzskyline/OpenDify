@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 import os
 import ast
 
+import requests
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -23,6 +25,7 @@ load_dotenv()
 
 # 从环境变量读取有效的API密钥（逗号分隔）
 VALID_API_KEYS = [key.strip() for key in os.getenv("VALID_API_KEYS", "").split(",") if key]
+
 
 # 获取会话记忆功能模式配置
 # 1: 构造history_message附加到消息中的模式(默认)
@@ -43,29 +46,77 @@ class DifyModelManager:
             self.api_keys = [key.strip() for key in api_keys_str.split(',') if key.strip()]
             logger.info(f"Loaded {len(self.api_keys)} API keys")
 
+    # async def fetch_app_info(self, api_key):
+    #     """获取Dify应用信息"""
+    #     try:
+    #         async with httpx.AsyncClient() as client:
+    #             headers = {
+    #                 "Authorization": f"Bearer {api_key}",
+    #                 "Content-Type": "application/json"
+    #             }
+    #             response = await client.get(
+    #                 f"{DIFY_API_BASE}/info",
+    #                 headers=headers,
+    #                 params={"user": "default_user"}
+    #             )
+                
+    #             if response.status_code == 200:
+    #                 app_info = response.json()
+    #                 return app_info.get("name", "Unknown App")
+    #             else:
+    #                 logger.error(f"Failed to fetch app info for API key: {api_key[:8]}...")
+    #                 return None
+    #     except Exception as e:
+    #         logger.error(f"Error fetching app info: {str(e)}")
+    #         return None
+    # async def fetch_app_info(self, api_key):
+    #     """获取Dify应用信息"""
+    #     try:
+    #         async with httpx.AsyncClient() as client:
+    #             headers = {
+    #                 "Authorization": f"Bearer app-wfKlMpCd6iWMRS5dPCE2LFDE",
+    #                 "Content-Type": "application/json"
+    #             }
+                
+    #             # 构建完整URL，包含查询参数
+    #             url = f"{DIFY_API_BASE}/info?user=default_user"
+                
+    #             # 发送GET请求，不传递data参数（与curl命令一致）
+    #             logger.debug(f"Fetching app info from: {url}")
+    #             response = await client.get(url, headers=headers)
+                
+    #             # 统一处理HTTP错误
+    #             response.raise_for_status()
+                
+    #             app_info = response.json()
+    #             logger.info(f"Successfully fetched app info: {app_info.get('name', 'Unknown')}")
+    #             return app.info["name"]
+                
+    #     except httpx.HTTPStatusError as e:
+    #         logger.error(f"HTTP error fetching app info (status {e.response.status_code}): {e.response.text}")
+    #         return None
+    #     except httpx.RequestError as e:
+    #         logger.error(f"Request error: {str(e)}")
+    #         return None
+    #     except Exception as e:
+    #         logger.error(f"Unexpected error: {str(e)}")
+    #         return None
+
     async def fetch_app_info(self, api_key):
         """获取Dify应用信息"""
-        try:
-            async with httpx.AsyncClient() as client:
-                headers = {
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                }
-                response = await client.get(
-                    f"{DIFY_API_BASE}/info",
-                    headers=headers,
-                    params={"user": "default_user"}
-                )
-                
-                if response.status_code == 200:
-                    app_info = response.json()
-                    return app_info.get("name", "Unknown App")
-                else:
-                    logger.error(f"Failed to fetch app info for API key: {api_key[:8]}...")
-                    return None
-        except Exception as e:
-            logger.error(f"Error fetching app info: {str(e)}")
-            return None
+        url = "http://10.250.196.215:81/v1/info?user=default_user"
+
+        payload = ""
+        headers = {
+        'Authorization': f"Bearer {api_key}",
+        'Content-Type': 'application/json'
+        }
+
+        response = requests.request("GET", url, headers=headers, data=payload)
+
+        # print(response.text)
+        return response.json()["name"]
+
 
     async def refresh_model_info(self):
         """刷新所有应用信息"""
@@ -441,6 +492,7 @@ def chat_completions():
             }, 404
             
         dify_request = transform_openai_to_dify(openai_request, "/chat/completions")
+        logging.info(f"Transformed request: {json.dumps(dify_request, ensure_ascii=False)}")
         
         if not dify_request:
             logger.error("Failed to transform request")
@@ -459,6 +511,10 @@ def chat_completions():
         stream = openai_request.get("stream", False)
         dify_endpoint = f"{DIFY_API_BASE}/chat-messages"
         logger.info(f"Sending request to Dify endpoint: {dify_endpoint}, stream={stream}")
+
+        logger.info(f"Dify Request URL: {dify_endpoint}")
+        logger.info(f"Dify Request Headers: {headers}")
+        logger.info(f"Dify Request Body: {json.dumps(dify_request, ensure_ascii=False)}")
 
         if stream:
             def generate():
@@ -686,40 +742,50 @@ def chat_completions():
         else:
             async def sync_response():
                 try:
-                    async with httpx.AsyncClient() as client:
-                        response = await client.post(
-                            dify_endpoint,
-                            json=dify_request,
-                            headers=headers
-                        )
-                        
-                        if response.status_code != 200:
-                            error_msg = f"Dify API error: {response.text}"
-                            logger.error(f"Request failed: {error_msg}")
-                            return {
-                                "error": {
-                                    "message": error_msg,
-                                    "type": "api_error",
-                                    "code": response.status_code
-                                }
-                            }, response.status_code
+                
+                    url = dify_endpoint
+                    payload = json.dumps(dify_request, ensure_ascii=False)
+                    
+                    _headers = {
+                        'Authorization': 'Bearer app-wfKlMpCd6iWMRS5dPCE2LFDE',
+                        'Content-Type': 'application/json'
+                    }
+                    logger.info(f"dify request payload {payload}")
+                    logger.info(f"dify request headers {_headers}")
+                    logger.info(f"dify request url {url}")
 
-                        dify_response = response.json()
-                        logger.info(f"Received response from Dify: {json.dumps(dify_response, ensure_ascii=False)}")
-                        logger.info(f"[Debug] Response content: {repr(dify_response.get('answer', ''))}")
-                        openai_response = transform_dify_to_openai(dify_response, model=model)
-                        conversation_id = dify_response.get("conversation_id")
-                        if conversation_id:
-                            # 在响应头中传递conversation_id
-                            return Response(
-                                json.dumps(openai_response),
-                                content_type='application/json',
-                                headers={
-                                    'Conversation-Id': conversation_id
-                                }
-                            )
-                        else:
-                            return openai_response
+                    response = requests.request("POST", url, headers=_headers, data=payload)
+                    logger.info(f"Received response from Dify: {response.text}")
+
+                    if response.status_code != 200:
+                        logger.error(f"Dify Raw Response: {response.text}")  # 新增日志
+
+                        error_msg = f"Dify API error: {response.text}"
+                        logger.error(f"Request failed: {error_msg}")
+                        return {
+                            "error": {
+                                "message": error_msg,
+                                "type": "api_error",
+                                "code": response.status_code
+                            }
+                        }, response.status_code
+
+                    dify_response = response.json()
+                    logger.info(f"Received response from Dify: {json.dumps(dify_response, ensure_ascii=False)}")
+                    logger.info(f"[Debug] Response content: {repr(dify_response.get('answer', ''))}")
+                    openai_response = transform_dify_to_openai(dify_response, model=model)
+                    conversation_id = dify_response.get("conversation_id")
+                    if conversation_id:
+                        # 在响应头中传递conversation_id
+                        return Response(
+                            json.dumps(openai_response),
+                            content_type='application/json',
+                            headers={
+                                'Conversation-Id': conversation_id
+                            }
+                        )
+                    else:
+                        return openai_response
                 except httpx.RequestError as e:
                     error_msg = f"Failed to connect to Dify: {str(e)}"
                     logger.error(error_msg)
