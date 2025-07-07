@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/lzskyline-opendify-badge.png)](https://mseep.ai/app/lzskyline-opendify)
+
 # OpenDify
 
 OpenDify 是一个将 Dify API 转换为 OpenAI API 格式的代理服务器。它允许使用 OpenAI API 客户端直接与 Dify 服务进行交互。
