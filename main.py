@@ -139,22 +139,20 @@ async def upload_image_to_dify(api_key, base64_data, user_id="default_user"):
                 
                 # 准备multipart数据用于文件上传
                 # Dify当前仅支持图片类型附件的上传 (PNG, JPG, JPEG, WEBP, GIF)
-                files = {
-                    'file': ('image.png', open(tmp_file_path, 'rb'), 'image/png')
-                }
-                data = {
-                    'user': user_id
-                }
-                
-                response = await client.post(
-                    f"{DIFY_API_BASE}/files/upload",
-                    headers=headers,
-                    files=files,
-                    data=data
-                )
-                
-                # 清理临时文件
-                os.unlink(tmp_file_path)
+                with open(tmp_file_path, 'rb') as file_handle:
+                    files = {
+                        'file': ('image.png', file_handle, 'image/png')
+                    }
+                    data = {
+                        'user': user_id
+                    }
+                    
+                    response = await client.post(
+                        f"{DIFY_API_BASE}/files/upload",
+                        headers=headers,
+                        files=files,
+                        data=data
+                    )
                 
                 # 检查上传响应状态码
                 # HTTP 200: OK, HTTP 201: Created
@@ -167,11 +165,28 @@ async def upload_image_to_dify(api_key, base64_data, user_id="default_user"):
                     return None
                     
         except Exception as e:
-            # 确保临时文件被清理，避免磁盘空间泄露
-            if os.path.exists(tmp_file_path):
-                os.unlink(tmp_file_path)
             logger.error(f"Error uploading image: {str(e)}")
             return None
+            
+        finally:
+            # 确保临时文件被清理，避免磁盘空间泄露
+            if tmp_file_path and os.path.exists(tmp_file_path):
+                try:
+                    # 等待一小段时间确保文件句柄完全释放
+                    import asyncio
+                    await asyncio.sleep(0.1)
+                    os.unlink(tmp_file_path)
+                    logger.debug(f"Temporary file cleaned up: {tmp_file_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to cleanup temporary file {tmp_file_path}: {cleanup_error}")
+                    # 如果立即删除失败，尝试延迟删除
+                    try:
+                        await asyncio.sleep(1)
+                        if os.path.exists(tmp_file_path):
+                            os.unlink(tmp_file_path)
+                            logger.debug(f"Temporary file cleaned up after delay: {tmp_file_path}")
+                    except Exception as delayed_cleanup_error:
+                        logger.error(f"Failed to cleanup temporary file after delay {tmp_file_path}: {delayed_cleanup_error}")
             
     except Exception as e:
         logger.error(f"Error processing image data: {str(e)}")
@@ -223,15 +238,37 @@ async def transform_openai_to_dify(openai_request, endpoint, api_key=None):
             # 上传图片文件
             if api_key and image_parts:
                 logger.info(f"Found {len(image_parts)} images to upload")
-                for image_data in image_parts:
-                    file_id = await upload_image_to_dify(api_key, image_data, user_id)
-                    if file_id:
-                        uploaded_files.append({
-                            "type": "image",
-                            "transfer_method": "local_file",
-                            "upload_file_id": file_id
-                        })
-                logger.info(f"Uploaded {len(uploaded_files)} files")
+                successful_uploads = 0
+                failed_uploads = 0
+                
+                for i, image_data in enumerate(image_parts):
+                    try:
+                        logger.info(f"Uploading image {i+1}/{len(image_parts)}")
+                        file_id = await upload_image_to_dify(api_key, image_data, user_id)
+                        if file_id:
+                            uploaded_files.append({
+                                "type": "image",
+                                "transfer_method": "local_file",
+                                "upload_file_id": file_id
+                            })
+                            successful_uploads += 1
+                            logger.info(f"Successfully uploaded image {i+1}/{len(image_parts)}, file_id: {file_id}")
+                        else:
+                            failed_uploads += 1
+                            logger.warning(f"Failed to upload image {i+1}/{len(image_parts)}")
+                    except Exception as e:
+                        failed_uploads += 1
+                        logger.error(f"Exception occurred while uploading image {i+1}/{len(image_parts)}: {str(e)}")
+                
+                # 记录上传结果统计
+                if successful_uploads > 0:
+                    logger.info(f"Uploaded {successful_uploads}/{len(image_parts)} files successfully")
+                if failed_uploads > 0:
+                    logger.warning(f"Failed to upload {failed_uploads}/{len(image_parts)} files")
+                
+                # 如果所有图片都上传失败，记录警告
+                if successful_uploads == 0 and failed_uploads > 0:
+                    logger.warning("All image uploads failed, proceeding with text-only request")
         else:
             # 处理纯文本内容
             user_query = user_content
