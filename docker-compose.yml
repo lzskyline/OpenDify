@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # OpenDify 代理服务
+  opendify:
+    build: .
+    container_name: opendify-proxy
+    restart: unless-stopped
+    
+    # 端口映射：将容器的 5000 端口映射到主机的 5068 端口
+    ports:
+      - "5068:5000"
+    
+    # 环境变量配置
+    environment:
+      # Dify API 配置
+      - DIFY_API_KEYS=${DIFY_API_KEYS}
+      - DIFY_API_BASE=${DIFY_API_BASE}
+      
+      # OpenAI 兼容 API 密钥配置
+      - VALID_API_KEYS=${VALID_API_KEYS}
+      
+      # 服务器配置
+      - SERVER_HOST=0.0.0.0  # 在 Docker 中需要绑定到 0.0.0.0
+      - SERVER_PORT=5000
+      
+      # 会话记忆模式配置
+      - CONVERSATION_MEMORY_MODE=${CONVERSATION_MEMORY_MODE:-1}
+    
+    # 卷挂载：用于持久化配置和日志
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro  # 只读挂载环境变量文件
+    
+    # 网络配置
+    networks:
+      - opendify-network
+    
+    # 健康检查配置
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # 标签
+    labels:
+      - "com.opendify.description=OpenDify API Proxy"
+      - "com.opendify.version=1.0"
+
+# 网络配置
+networks:
+  opendify-network:
+    driver: bridge
+    name: opendify-network
+
+# 卷配置
+volumes:
+  logs:
+    driver: local

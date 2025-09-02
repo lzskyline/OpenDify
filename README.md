@@ -113,7 +113,7 @@ CONVERSATION_MEMORY_MODE=1
 ```python
 import openai
 
-openai.api_base = "http://127.0.0.1:5000/v1"
+openai.api_base = "http://127.0.0.1:5068/v1"
 openai.api_key = "sk-abc123"  # 使用配置的有效API Key
 
 # 获取可用模型列表
@@ -147,7 +147,7 @@ print(models)
 ```python
 import openai
 
-openai.api_base = "http://127.0.0.1:5000/v1"
+openai.api_base = "http://127.0.0.1:5068/v1"
 openai.api_key = "sk-abc123"  # 使用配置的有效API Key
 
 response = openai.ChatCompletion.create(
@@ -205,7 +205,7 @@ VALID_API_KEYS="sk-abc123,sk-def456"
 
 # Server Configuration
 SERVER_HOST="127.0.0.1"
-SERVER_PORT=5000
+SERVER_PORT=5068
 ```
 
 配置说明：
@@ -219,7 +219,7 @@ SERVER_PORT=5000
 python main.py
 ```
 
-服务将在 `http://127.0.0.1:5000` 启动
+服务将在 `http://127.0.0.1:5068` 启动
 
 ## 贡献指南
 
