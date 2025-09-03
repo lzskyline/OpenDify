@@ -85,3 +85,4 @@ docker-compose.yml
 # 其他
 *.bak
 *.backup
+*.tar

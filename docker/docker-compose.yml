@@ -1,7 +1,7 @@
 services:
   # OpenDify 代理服务
   opendify:
-    build: .
+    build: ..
     container_name: opendify-proxy
     restart: unless-stopped
     
@@ -23,7 +23,7 @@ services:
       - SERVER_PORT=5000
       
       # 会话记忆模式配置
-      # 1: history_message模式(默认) 2: 零宽字符模式 3: 无历史上下文模式
+      # 1: history_message模式(默认) 2: 零宽字符模式
       - CONVERSATION_MEMORY_MODE=${CONVERSATION_MEMORY_MODE:-1}
     
     # 卷挂载：用于持久化配置和日志
