@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # OpenDify 代理服务
   opendify:
