@@ -27,6 +27,7 @@ VALID_API_KEYS = [key.strip() for key in os.getenv("VALID_API_KEYS", "").split("
 # 获取会话记忆功能模式配置
 # 1: 构造history_message附加到消息中的模式(默认)
 # 2: 零宽字符模式
+# 3: 无历史上下文模式 - 每次对话都是独立的，不包含任何历史信息
 CONVERSATION_MEMORY_MODE = int(os.getenv('CONVERSATION_MEMORY_MODE', '1'))
 
 # HTTP客户端超时配置（秒）
@@ -307,6 +308,28 @@ async def transform_openai_to_dify(openai_request, endpoint, api_key=None):
             if uploaded_files:
                 dify_request["files"] = uploaded_files
                 
+        elif CONVERSATION_MEMORY_MODE == 3:  # 无历史上下文模式
+            # 完全忽略历史消息，只处理当前用户问题和system指令
+            # 这种模式适用于：
+            # 1. 需要避免模型幻觉的场景
+            # 2. 每次对话都应该是独立的问答
+            # 3. 客服场景，避免历史对话干扰当前问题
+            # 4. 对响应速度要求高，成本敏感的场景
+            if system_content:
+                user_query = f"系统指令: {system_content}\n\n用户问题: {user_query}"
+                logger.info(f"[无历史上下文模式] 添加system内容到查询前")
+            
+            dify_request = {
+                "inputs": {},
+                "query": user_query,
+                "response_mode": "streaming" if stream else "blocking",
+                "user": user_id
+            }
+            
+            # 如果有上传的文件，添加到请求中
+            if uploaded_files:
+                dify_request["files"] = uploaded_files
+                
         else:  # history_message模式(默认)
             # 构造历史消息
             if len(messages) > 1:
@@ -372,6 +395,7 @@ def transform_dify_to_openai(dify_response, model="claude-3-5-sonnet-v2", stream
                         answer = thought.get("thought", "")
         
         # 只在零宽字符会话记忆模式时处理conversation_id
+        # 模式3（无历史上下文）不处理conversation_id，保持对话独立
         if CONVERSATION_MEMORY_MODE == 2:
             conversation_id = dify_response.get("conversation_id", "")
             history = dify_response.get("conversation_history", [])
@@ -789,6 +813,7 @@ def chat_completions():
                                                 time.sleep(0.001)  # 固定使用最小延迟快速输出剩余内容
                                             
                                             # 只在零宽字符会话记忆模式时处理conversation_id
+                                            # 模式3（无历史上下文）不处理conversation_id，保持对话独立
                                             if CONVERSATION_MEMORY_MODE == 2:
                                                 conversation_id = dify_chunk.get("conversation_id")
                                                 history = dify_chunk.get("conversation_history", [])
@@ -936,6 +961,17 @@ if __name__ == '__main__':
     
     # 启动时初始化模型信息
     asyncio.run(model_manager.refresh_model_info())
+    
+    # 显示当前会话记忆模式信息
+    mode_descriptions = {
+        1: "history_message模式 - 构造history_message附加到消息中",
+        2: "零宽字符模式 - 使用零宽字符隐藏conversation_id",
+        3: "无历史上下文模式 - 每次对话都是独立的，不包含任何历史信息"
+    }
+    current_mode = CONVERSATION_MEMORY_MODE
+    mode_desc = mode_descriptions.get(current_mode, "未知模式")
+    logger.info(f"会话记忆模式: {current_mode} - {mode_desc}")
+    print(f"会话记忆模式: {current_mode} - {mode_desc}")
     
     host = os.getenv("SERVER_HOST", "127.0.0.1")
     port = int(os.getenv("SERVER_PORT", 5000))
