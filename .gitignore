@@ -62,3 +62,5 @@ coverage.xml
 # Project specific
 *.pid
 *.sock 
+
+*.tar

@@ -29,6 +29,10 @@ VALID_API_KEYS = [key.strip() for key in os.getenv("VALID_API_KEYS", "").split("
 # 2: 零宽字符模式
 CONVERSATION_MEMORY_MODE = int(os.getenv('CONVERSATION_MEMORY_MODE', '1'))
 
+# HTTP客户端超时配置（秒）
+HTTP_TIMEOUT = int(os.getenv('HTTP_TIMEOUT', '30'))  # 默认30秒超时
+HTTP_CONNECT_TIMEOUT = int(os.getenv('HTTP_CONNECT_TIMEOUT', '10'))  # 默认10秒连接超时
+
 class DifyModelManager:
     def __init__(self):
         self.api_keys = []
@@ -46,7 +50,7 @@ class DifyModelManager:
     async def fetch_app_info(self, api_key):
         """获取Dify应用信息"""
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=(HTTP_TIMEOUT, HTTP_CONNECT_TIMEOUT)) as client:
                 headers = {
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
@@ -132,7 +136,7 @@ async def upload_image_to_dify(api_key, base64_data, user_id="default_user"):
         
         try:
             # 使用httpx上传文件到Dify
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=(HTTP_TIMEOUT, HTTP_CONNECT_TIMEOUT)) as client:
                 headers = {
                     "Authorization": f"Bearer {api_key}"
                 }
@@ -846,7 +850,7 @@ def chat_completions():
         else:
             async def sync_response():
                 try:
-                    async with httpx.AsyncClient() as client:
+                    async with httpx.AsyncClient(timeout=(HTTP_TIMEOUT, HTTP_CONNECT_TIMEOUT)) as client:
                         response = await client.post(
                             dify_endpoint,
                             json=dify_request,

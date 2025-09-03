@@ -206,6 +206,10 @@ VALID_API_KEYS="sk-abc123,sk-def456"
 # Server Configuration
 SERVER_HOST="127.0.0.1"
 SERVER_PORT=5068
+
+# HTTP Timeout Configuration (seconds)
+HTTP_TIMEOUT=30          # 请求超时时间
+HTTP_CONNECT_TIMEOUT=10  # 连接超时时间
 ```
 
 配置说明：
