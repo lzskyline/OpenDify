@@ -5,9 +5,9 @@ services:
     container_name: opendify-proxy
     restart: unless-stopped
     
-    # 端口映射：将容器的 5000 端口映射到主机的 5068 端口
+    # 端口映射：将容器的服务端口映射到主机端口
     ports:
-      - "5068:5000"
+      - "${EXTERNAL_PORT:-5068}:${SERVER_PORT:-5000}"
     
     # 环境变量配置
     environment:
@@ -37,7 +37,7 @@ services:
     
     # 健康检查配置
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/v1/models"]
+      test: ["CMD", "curl", "-f", "http://localhost:${SERVER_PORT:-5000}/v1/models"]
       interval: 30s
       timeout: 10s
       retries: 3
