@@ -1,7 +1,7 @@
 services:
   # OpenDify 代理服务
   opendify:
-    build: ..
+    build: .
     container_name: opendify-proxy
     restart: unless-stopped
     
